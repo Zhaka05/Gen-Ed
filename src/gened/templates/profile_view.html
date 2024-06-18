@@ -48,7 +48,7 @@ dl.profile dd { margin: 0; }
         </dd>
       {% endif %}
       <dt>Queries:</dt>
-      <dd>{{ user.num_queries }} total, {{ user.num_recent_queries }} in the past week.</dd>
+      <dd>{{ user.num_queries }} total, {{ user.num_recent_queries }} in the past week. <a href="{{url_for('helper.get_all_queries')}}" class="button is-light is-link is-small mt">View All Queries</a> </dd>
       {% if not auth['role'] %}
       <dt>Free Queries:</dt>
       <dd>
