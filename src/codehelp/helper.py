@@ -337,8 +337,15 @@ def get_topics(llm: LLMConfig, query_id: int) -> list[str]:
     return topics
 
 
-@bp.route("/view/queries")
+@bp.route("/list_queries")
 @login_required
-def get_all_queries():
-    queries = get_history()
+def get_all_queries() -> str:
+    """ 
+    Parses and renders all queries in a html file
+
+    Returns:
+        HTML file : str
+    """
+
+    queries = get_history(limit=None)
     return render_template("all_queries.html", queries=queries)
