@@ -7,27 +7,16 @@ SPDX-License-Identifier: AGPL-3.0-only
 {% macro recent_queries(history) -%}
 <div class="p-4">
   <!-- my button code start -->
-    <!-- <div class="column is-7">
-      <h1 class="is-size-5">
-        Your recent queries:
-        <a
-          href="{{url_for('helper.get_all_queries')}}"
-          class="button is-light is-link is-small mt"
-          >View All Queries</a
-        >
-      </h1>
-    </div> -->
-    <h1 class="is-size-5">
+    
+    <h2 class="is-size-5 mb-3">
       Your recent queries:
       <a
         href="{{url_for('helper.get_all_queries')}}"
         class="button is-light is-link is-small mt"
         >View All Queries</a
       >
-    </h1>
-    <br>
+    </h2>
     <!-- my button code end -->
-  <h2 class="is-size-5">Your recent queries:</h2>
   {% for prev in history %}
     <div class="box p-3">
       <div class="buttons has-addons are-small is-pulled-right">
