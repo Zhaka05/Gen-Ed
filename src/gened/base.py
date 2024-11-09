@@ -11,7 +11,8 @@ from typing import Any
 
 import flask.app
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
+from flask.wrappers import Response
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import (
@@ -116,9 +117,6 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
         SEND_FILE_MAX_AGE_DEFAULT=3*60*60,  # 3 hours
         # Free query tokens given to new users
         DEFAULT_TOKENS=10,
-        # Model IDs for various circumstances (see also: models table in DB schema)
-        DEFAULT_MODEL_ID=2,  # Default for new users: GPT-4o
-        SYSTEM_MODEL_ID=2,   # Default for 'system' use: GPT-4o
 
         PYLTI_CONFIG={
             # will be loaded from the consumers table in the database
@@ -135,7 +133,10 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
     # Required variables:
     #  - SECRET_KEY: used by Flask to sign session cookies
     #  - OPENAI_API_KEY: the "system" API key used in certain situations
-    for varname in ["SECRET_KEY", "OPENAI_API_KEY"]:
+    #  - SYSTEM_MODEL: OpenAI model string used for 'system' completions
+    #  - DEFAULT_CLASS_MODEL_SHORTNAME: shortname of model to use as default for new classes
+    #    (see models table in db)
+    for varname in ["SECRET_KEY", "OPENAI_API_KEY", "SYSTEM_MODEL", "DEFAULT_CLASS_MODEL_SHORTNAME"]:
         try:
             env_var = os.environ[varname]
             base_config[varname] = env_var
@@ -162,14 +163,6 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
 
     # configure the application
     app.config.from_mapping(total_config)
-
-    # load consumers from DB (but only if the database is initialized)
-    try:
-        with app.app_context():
-            admin.reload_consumers()
-    except sqlite3.OperationalError:
-        # the table doesn't exist yet -- that's fine
-        pass
 
     admin.init_app(app)
     db.init_app(app)
@@ -206,5 +199,33 @@ def create_app_base(import_name: str, app_config: dict[str, Any], instance_path:
     @app.route('/')
     def landing() -> str:
         return render_template("landing.html")
+
+    @app.route('/.well-known/<path:path>')
+    def well_known(path: Path) -> Response:
+        return send_from_directory(Path(app.instance_path) / '.well-known', path)
+
+    # run setup and checks that depend on the database (iff it is initialized)
+    # requires that db.init_app() has been called to ensure db is closed at end of context manager
+    with app.app_context():
+        db_conn = db.get_db()
+        try:
+            db_conn.execute("SELECT 1 FROM consumers LIMIT 1")
+            db_conn.execute("SELECT 1 FROM models LIMIT 1")
+            db_initialized = True
+        except sqlite3.OperationalError:
+            db_initialized = False
+
+        if db_initialized:
+            # load consumers from DB
+            admin.reload_consumers()
+
+            # validate that the default class model exists and is active
+            default_model_row = db_conn.execute(
+                "SELECT 1 FROM models WHERE active AND shortname = ?",
+                [app.config['DEFAULT_CLASS_MODEL_SHORTNAME']]
+            ).fetchone()
+            if not default_model_row:
+                app.logger.error(f"Default model shortname '{app.config['DEFAULT_CLASS_MODEL_SHORTNAME']}' not found in active models.")
+                sys.exit(1)
 
     return app
