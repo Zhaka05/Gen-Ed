@@ -37,6 +37,7 @@ from . import (
     oauth,
     profile,
     tz,
+    report,
 )
 from .db import get_db
 
@@ -313,6 +314,7 @@ class GenEdAppBuilder:
         app.register_blueprint(oauth.bp, url_prefix='/oauth')
         app.register_blueprint(profile.bp, url_prefix='/profile')
         app.register_blueprint(models.bp, url_prefix="/models")
+        app.register_blueprint(report.bp, url_prefix="/report")
         class_config_bp = class_config.build_blueprint(app)  # requires building, using data stored in app.extensions['gen_ed_config_tables']
         app.register_blueprint(class_config_bp, url_prefix='/instructor/config')
 
