@@ -1,4 +1,12 @@
-from http.client import responses
+# SPDX-FileCopyrightText: 2025 Mark Liffiton <liffiton@gmail.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
+"""
+LLM-powered query/chat summarization/clustering/reporting for instructors
+
+"""
+
 
 from flask import (
     Blueprint,
@@ -11,12 +19,44 @@ from flask import (
     session,
     url_for,
 )
+
+from jinja2 import Environment
+
 from .db import get_db
-from sqlite3 import Row
-from .auth import get_auth
 from .llm import with_llm, LLM
-import asyncio
+from .auth import ClassData, instructor_required, get_auth_class
+
 bp = Blueprint('report', __name__, url_prefix="/report", template_folder="templates")
+
+@bp.before_request
+@instructor_required
+def before_request() -> None:
+    """ Apply decorator to protect all instructor blueprint endpoints. """
+
+
+jinja_env = Environment(
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
+
+template = jinja_env.from_string("""
+
+
+=== STUDENT QUERIES ===
+{% for query in queries %}
+    Query {{ loop.index }}
+    <code>
+    {{ query["code"] }}
+    </code>
+    <error>
+    {{ query["error"] }}
+    </error>
+    <issue>
+    {{ query["issue"] }}
+    </issue>
+{% endfor %}
+
+""")
 
 @bp.route("/", methods=['GET'])
 def main():
@@ -25,47 +65,19 @@ def main():
 @bp.route("/", methods=['POST'])
 @with_llm(spend_token=True)
 def post_report(llm: LLM) -> str:
+
     db = get_db()
+    auth = get_auth_class()
+    class_id = auth.class_id
+
     rows = db.execute("""
-    SELECT code, error, issue FROM code_queries
-    """)
-    # work with this rows
-    prompt = """Please summarize student queries\n"""
-    for i, row in enumerate(rows):
-        prompt += f"Student {i+1}\n"
-        prompt += f"code: {row['code']}\n"
-        prompt += f"code: {row['error']}\n"
-        prompt += f"code: {row['issue']}\n"
-        prompt += "\n"
+    SELECT code, error, issue, role_id FROM code_queries WHERE role_id = ?
+    """, [class_id])
 
     # api request
-    # response_main, response_txt = asyncio.run(
-    #     llm.get_completion(prompt=prompt)
-    # )
-    print(prompt)
+    response_main, response_txt = asyncio.run(
+        llm.get_completion(messages=[{"role": "system", "content": template.render(queries=rows)}])
+    )
     # display response
     return render_template("report.html", main=response_main, response=response_txt)
-
-async def get_response(llm: LLM, prompt):
-    ...
-# @bp.route("/add", methods=["POST"])
-# def add_query() -> str:
-#     db = get_db()
-#     auth = get_auth()
-#     role_id = auth.cur_class.role_id if auth.cur_class else None
-#
-#     code = request.form["code"]
-#     error = request.form["error"]
-#     issue = request.form["issue"]
-#
-#     cur = db.execute(
-#         "INSERT INTO code_queries (code, error, issue, user_id, role_id) VALUES (?, ?, ?, ?, ?)",
-#         [code, error, issue, auth.user_id, role_id]
-#     )
-#     db.commit()
-#     return redirect(url_for("report.main"))
-#
-# @bp.route("/add", methods=["GET"])
-# def show_add_query():
-#     return render_template("add_query.html")
 
