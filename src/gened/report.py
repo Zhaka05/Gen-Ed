@@ -24,15 +24,12 @@ from jinja2 import Environment
 
 from .db import get_db
 from .llm import with_llm, LLM
-from .auth import ClassData, instructor_required, get_auth_class
+from .auth import ClassData, get_auth_class
+from .access import Access, control_blueprint_access
 
 bp = Blueprint('report', __name__, url_prefix="/report", template_folder="templates")
 
-@bp.before_request
-@instructor_required
-def before_request() -> None:
-    """ Apply decorator to protect all instructor blueprint endpoints. """
-
+control_blueprint_access(bp, Access.INSTRUCTOR)
 
 jinja_env = Environment(
     trim_blocks=True,

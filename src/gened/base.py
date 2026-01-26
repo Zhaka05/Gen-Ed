@@ -269,7 +269,7 @@ class GenEdAppBuilder:
         app.register_blueprint(profile.bp, url_prefix='/profile')
         app.register_blueprint(models.bp, url_prefix="/models")
         app.register_blueprint(report.bp, url_prefix="/report")
-        class_config_bp = class_config.build_blueprint(app)  # requires building, using data stored in app.extensions['gen_ed_config_tables']
+
         # class_config blueprints require a build step using registered components
         with app.app_context():  # so current_app works when getting registered components
             class_config_bp = class_config.build_blueprint()
